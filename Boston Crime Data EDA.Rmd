@@ -1,0 +1,242 @@
+---
+title: "Boston Crime EDA"
+author: "Pranali Bhosale"
+date: "2/19/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Packages required:
+readr, tidyverse, maps, mapproj, measurements, lubridate, tinytex, dplyr, ggplot2, tinytex 
+
+```{r}
+#library(maps)
+library(lubridate)
+library(readr)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+#library(tinytex)
+```
+
+
+
+
+I have chosen the Boston Crime Incident dataset \n
+
+TITLE: Crime Incident Reports (June 2015 - To Date) (Source: New System)\n
+
+DATASET DESCRIPTION: Crime incident reports are provided by Boston Police Department (BPD) to document the initial details surrounding an incident to which BPD officers respond. This is a dataset containing records from the new crime incident report system, which includes a reduced set of fields focused on capturing the type of incident as well as when and where it occurred. Records in the new system begin in June of 2015.\n
+
+```{r}
+#Importing the raw data
+crime_raw <- read.csv("C:/Users/prana/Desktop/SECOND YEAR/Data Viz/Lecture 4/crime.csv", na.strings="")
+
+#Getting the summary of all variables in dataset
+summary(crime_raw)
+
+#Displaying the first 10 rows of the dataset
+head(crime_raw, 10)
+```
+
+
+
+##Exploring the data
+
+```{r}
+#Checking for total number of missing values in variables
+sum(is.na(crime_raw$OFFENSE_CODE))
+sum(is.na(crime_raw$YEAR))
+sum(is.na(crime_raw$MONTH))
+sum(is.na(crime_raw$HOUR))
+sum(is.na(crime_raw$REPORTING_AREA))
+sum(is.na(crime_raw$Long))
+sum(is.na(crime_raw$Lat))
+sum(is.na(crime_raw$DISTRICT))
+sum(is.na(crime_raw$SHOOTING))
+sum(is.na(crime_raw$OFFENSE_CODE_GROUP))
+sum(is.na(crime_raw$UCR_PART))
+sum(is.na(crime_raw$STREET))
+
+#Converting OCCURRED_ON_DATE variable to datetime format
+crime_raw$OCCURRED_ON_DATE <- as_datetime(crime_raw$OCCURRED_ON_DATE)
+
+#Replacing the District numbers with district names for convenience purpose
+names_district = c(
+A1 = 'Downtown',
+A15= 'Charlestown',
+A7= 'East Boston',
+B2= 'Roxbury',
+B3= 'Mattapan',
+C6= 'South Boston',
+C11= 'Dorchester',
+D4= 'South End',
+D14= 'Brighton',
+E5= 'West Roxbury',
+E13= 'Jamaica Plain',
+E18= 'Hyde Park')
+crime_raw$DISTRICT <- as.factor(names_district[(crime_raw$DISTRICT)] )
+
+head(crime_raw,10)
+```
+
+We see that the missing values in variables in this dataset are as follows:\n
+Numerical variables:\n
+REPORTING_AREA : 30425
+Long: 27709
+Lat: 27709\n
+
+
+Categorical variables:\n
+SHOOTING: 425093
+DISTRICT: 2306
+OFFENSE_CODE_GROUP: 28080
+UCR_PART: 28190
+STREET: 15204\n
+
+
+
+Let us first see the distribution for each variable in the crime dataset.I am using a function to plot histograms for contious variables and Bar plots for categorical vairables. To keep this report short, I am commenting the print command. (These graphs are present on my poster)\n
+
+
+```{r}
+#Writing a function called 'plotCols' which iterates through each column of a dataset and plots the distribution for each column.
+plotCols <- function(anydataset) {
+  #For loop is used to iterate through each column in the dataset.
+  for(i in names(anydataset)) {
+    #Checking to whether the column is continous or not.If found continous then histogram is plotted.
+    if(is.numeric(anydataset[[i]])){
+     g<- ggplot(data=anydataset, mapping= aes_string(x=i)) + 
+       geom_histogram(color="black", fill="purple") 
+     #print(g)
+    }#if ends
+    #If the Column is categorical then a bar plot is created as follows.
+    else {
+     #i <- factor(i)
+     g<- ggplot(data=anydataset, mapping= aes_string(x=i)) + 
+       geom_bar(color="black", fill="pink") 
+     #print(g)
+    }#else ends
+  }#for loop ends
+}#function ends
+
+#Excluding three colums (Location, OCCURRED_ON_DATE, INCIDENT_NUMBER) before passing dataframe to plotting function.
+graph<- crime_raw[, c(-17, -8, -1)]
+
+#Calling the function to plot graphs for all columns in the dataset.
+plotCols(graph)
+```
+
+Let's start looking at some charts now.                                                                                                           
+
+```{r} 
+#Boxplot for all variables
+boxplot(drop_na(crime_raw) , main="Box plot for variables", col = "skyblue")
+
+#Graph showing the number of incidents in Boston on a yearly basis
+ggplot(crime_raw, aes(x = factor(YEAR))) + geom_bar(color="black", fill="purple") + 
+ggtitle(label = "Total number of Offense in Boston by Year") +  xlab("Year")
+
+#Crime incidents by Hour of the day using District as an added aesthetic
+ggplot((crime_raw), mapping = aes(x=factor(HOUR), fill=DISTRICT)) + 
+ggtitle(label = "Crime count by Hour") + geom_bar() + xlab("Hour")
+
+#Crime incidents by Month of the day using District as an added aesthetic
+ggplot((crime_raw), mapping = aes(x=factor(MONTH), fill=DISTRICT)) + 
+ggtitle(label = "Crime count by Month") + geom_bar() + xlab("Month")
+
+#Crime incidents by day of Week of the day using District as an added aesthetic
+ggplot((crime_raw), mapping = aes(x=factor(DAY_OF_WEEK), fill=DISTRICT)) + 
+ggtitle(label = "Crime count by Day of Week") + geom_bar() + xlab("Day of Week")
+
+#Graph presenting the types of offense in Boston on a yearly basis
+ggplot(data = (crime_raw), aes(x= factor(OFFENSE_CODE_GROUP), fill = factor(YEAR))) + geom_bar() + 
+ggtitle(label = "Types of Offense in Boston by Year") + xlab("Offense Code Groups") + coord_flip()
+
+#Graph showing the count of UCR Part crimes each year. UCR Part one crimes are the most dangerous kind including murder, rape etc. 
+ggplot(data=drop_na(crime_raw), aes(x=factor(UCR_PART), fill=factor(UCR_PART), na.rm = TRUE)) + geom_bar() + 
+  facet_wrap(~YEAR) + ggtitle("Count of UCR Part crimes each year") + 
+  ylab("Count") + xlab("UCR Part crimes")  + coord_flip()
+
+#Scatterplot using long and lat and using District as the added aesthetic
+ggplot((crime_raw), aes(x=Lat, y=Long, fill=factor(DISTRICT), color=factor(DISTRICT))) + geom_point() + 
+  scale_y_continuous(limits = c(-71.175,-71)) + scale_x_continuous(limits = c(42.225,42.400)) 
+
+#Comparing days of the week with street
+crime_raw %>% filter(fct_explicit_na(STREET) %in% (crime_raw  %>% count(STREET) %>% arrange(-n) %>% head(10) %>% pull(STREET))) %>% 
+    ggplot(aes(DAY_OF_WEEK, fill = STREET)) + geom_bar(position = "fill") +
+    coord_flip() + labs(x="Day of Week", title = "Comparing days of the week with street") + scale_fill_ordinal() 
+
+#Comparing District with street
+crime_raw %>% filter(fct_explicit_na(STREET) %in% (crime_raw  %>% count(STREET) %>% arrange(-n) %>% head(10) %>% pull(STREET))) %>% 
+    ggplot(aes(DISTRICT, fill = STREET)) + geom_bar(position = "fill") +
+    coord_flip() + labs(x="District", title = "Comparing District with street") + scale_fill_ordinal() 
+
+#Graph showing the count crimes in District and filled with the offense description
+drop_na(crime_raw) %>% filter(OFFENSE_DESCRIPTION %in% (crime_raw  %>% count(OFFENSE_DESCRIPTION) %>% arrange(desc(n)) %>% head(5) %>% pull(OFFENSE_DESCRIPTION))) %>% 
+    ggplot(aes(DISTRICT, fill = OFFENSE_DESCRIPTION))+
+    geom_bar()+
+    coord_flip()+
+    scale_fill_ordinal() +ggtitle("Count of Districts with offense description ")
+
+#Graph showing the count crimes in District and filled with the Day of week aesthetic
+drop_na(crime_raw) %>% filter(DAY_OF_WEEK %in% (crime_raw  %>% count(DAY_OF_WEEK) %>% arrange(desc(n)) %>% head(5) %>% 
+                                                  pull(DAY_OF_WEEK))) %>% 
+    ggplot(aes(DISTRICT, fill = DAY_OF_WEEK))+
+    geom_bar()+
+    coord_flip()+
+    scale_fill_ordinal() +ggtitle("Count of Districts with Day of week ")
+
+#Graph between two numerical variables - OFFENSE_CODE and REPORTING_AREA
+ggplot(crime_raw) + geom_bin2d(aes(x=(OFFENSE_CODE), y=(REPORTING_AREA))) + ggtitle("Offense code vs Reporting area") + 
+  labs(x="Offense code", y="Reporting area")
+
+#Graph between two numerical variables - MONTH and HOUR
+ggplot(crime_raw) + geom_bin2d(aes(x=factor(MONTH), y=factor(HOUR))) + ggtitle("MONTH vs HOUR") + labs(x="MONTH", y="HOUR")
+
+```
+
+
+```{r}
+##TABLES
+#Displaying the top 10 streets with most criminal incident reports
+Top_streets<-(crime_raw %>% count((STREET)) %>% arrange(desc(n)))
+print(head(Top_streets,10))
+
+#Displaying the top 10 Districts with most criminal incident reports
+Top_districts<- (crime_raw) %>% count((DISTRICT)) %>% arrange(desc(n))
+print(head(Top_districts,10))
+
+#Displaying the top 10 Offense code group with most criminal incident reports
+Top_groups<- (crime_raw) %>% count((OFFENSE_CODE_GROUP)) %>% arrange(desc(n))
+print(head(Top_groups,10))
+
+#Displaying the top 10 Offense code group by Hour with most criminal incident reports
+Top_gs<- (crime_raw) %>% group_by(fct_explicit_na(OFFENSE_CODE_GROUP), HOUR)%>% count() %>% arrange(desc(n))
+print(head(Top_gs,10))
+
+#Displaying the top 10 Offense code group by street with most criminal incident reports
+Top_gd<- drop_na(crime_raw) %>% group_by(fct_explicit_na(OFFENSE_CODE_GROUP), STREET)%>% count() %>% arrange(desc(n))
+print(head(Top_gd,10))
+
+#Displaying the top 10 Offense descriptions by district with most criminal incident reports
+Top_des_dist<- drop_na(crime_raw) %>% group_by(DISTRICT,fct_explicit_na(OFFENSE_DESCRIPTION))%>% count() %>% arrange(desc(n))
+ggplot(Top_des_dist, aes(x=Top_des_dist$DISTRICT, fill=Top_des_dist$`fct_explicit_na(OFFENSE_DESCRIPTION)`)) + 
+  geom_bar() + labs(title = "Count of crimes by district using offense description ", x="District", y="Offense Description")
+
+#Displaying the lowest 10 Offense code group with most criminal incident reports
+low_groups<- (crime_raw) %>% count((OFFENSE_CODE_GROUP)) %>% arrange((n))
+print(head(low_groups,10))
+
+#Displaying the top 10 Offense code descriptions with most criminal incident reports
+Top_des<- (crime_raw) %>% count((OFFENSE_DESCRIPTION)) %>% arrange(desc(n))
+print(head(Top_des,10))
+
+#Displaying the top 10 REPORTING_AREA with most criminal incident reports
+Top_area<- (crime_raw) %>% count((REPORTING_AREA)) %>% arrange(desc(n))
+print(head(Top_area,10))
+```
+
