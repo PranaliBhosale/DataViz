@@ -1,0 +1,76 @@
+---
+title: "Navajo Water Export"
+author: "Pranali Bhosale"
+date: "2/19/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#library(maps)
+library(lubridate)
+library(readr)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+#library(tinytex)
+```
+
+
+```{r}
+#Importing the raw data file
+water <- read_csv("C:/Users/prana/Desktop/SECOND YEAR/DS5110/HW2-Pranali-Bhosale/NavajoWaterExport.csv")
+```
+
+
+Mutate the dataset to replace the negative values of Radium-228 with 0. This can be done by using the mutate function. I am then storing the mutated dataset in a new dataframe called "water_edit".\n
+
+```{r}
+water_edit <- mutate(water, `Amount of Radium228`=ifelse(`Amount of Radium228`< 0, 0, `Amount of Radium228`))
+```
+
+
+Next, I am filtering the 'US EPA Risk Rating' variable to remove any sites with “Unknown Risk” for the EPA risk rating. This is done using the filter function.\n
+
+```{r}
+water_edit <- water_edit %>%
+filter(`US EPA Risk Rating` != "Unknown Risk")
+```
+
+Only one observation has the “Unknown Risk” for the EPA risk rating and now has been omitted from our dataset. \n
+ 
+Finally, visualizing the distribution of Radium-228 within each combination of EPA section and risk level. I am creating histograms using faceting for each EPA Section and adding fill aesthetic to see the different risk levels within each section.\n
+ 
+```{r}
+ggplot(data= water_edit, mapping=aes(x=`Amount of Radium228`, fill = `US EPA Risk Rating`)) +
+geom_histogram(bins = 15) +
+facet_wrap(~`Which EPA Section is This From?`)
+```
+ 
+ 
+
+Using the ggplot2::map_data() function to get data for drawing the “Four Corners” region of the United States (i.e., Arizona, New Mexico, Utah, and Colorado).\n
+
+```{r}
+Four_corners <-  ggplot2::map_data("state", region=c("Arizona", "New Mexico", "Utah", "Colorado"))
+```
+
+Using the measurements::conv_unit() function to convert the latitude and longitude information in the dataset to decimal degrees suitable to be used for plotting. Once again, I am doing this by using the mutate function on specific columns and storing in our water_edit dataset.\n
+
+```{r}
+water_edit2 <- mutate(water_edit, Longitude= -as.numeric(measurements::conv_unit(Longitude, from="deg_min_sec", to="dec_deg")), 
+                                 Latitude= as.numeric(measurements::conv_unit(Latitude, from="deg_min_sec", to="dec_deg")))
+```
+
+Creating a map of the region showing the locations of the water sampling sites, along with the EPA risk and the concentration of Radium-228 for
+each location (mapped to an appropriate aesthetic).\n
+ 
+```{r}
+ggplot(data=water_edit2) + geom_polygon(data=Four_corners, mapping=aes(x=long, y=lat, group=group),  fill=NA, color="blue") +
+geom_point(mapping=aes(x=water_edit2$Longitude, y=water_edit2$Latitude, color=`US EPA Risk Rating`, size=`Amount of Radium228`),
+alpha=2/3) + scale_color_manual(values=c("green", "red", "yellow")) +
+coord_map(xlim=c(-112.5, -108.5), ylim=c(34.8, 37.3))
+```
