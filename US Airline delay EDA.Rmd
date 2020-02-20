@@ -1,0 +1,141 @@
+---
+title: "Homework 2"
+author: "Pranali Bhosale"
+date: "2/3/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(tinytex)
+library(RColorBrewer)
+```
+
+
+```{r}
+#Importing the raw data
+Flights_raw <- read.csv("C:/Users/prana/Desktop/SECOND YEAR/Data Viz/HW 2/airlines_delay.csv")
+```
+
+##Question 1
+
+Compute the total number of arrival delays (in mins) for each carrier. Use a bar plot to show the top 10 carriers by arrival delays.
+
+```{r}
+#Computing the total delays for all carriers
+Total_delays <- summarise(group_by(Flights_raw, carrier), 
+                          Sum_delay =sum(arr_delay,na.rm=TRUE))
+
+#Selecting the top 10 carriers
+Total_delays <- head(arrange(Total_delays, !Sum_delay, desc(Sum_delay)),10)
+
+#Plotting the graph to show top 10 carriers by arrival delays
+Total_delays %>% ggplot(aes(x=reorder(carrier, Sum_delay), y=Sum_delay)) + 
+  geom_bar(stat="identity", color="black", fill="orange") + coord_flip() + 
+  labs(y="Sum of delay", x="Carrier", title="Top 10 carriers by arrival delays")+
+  theme(axis.line = element_line(colour = "black", 
+                      size = 1, linetype = "solid")) + theme_classic()
+
+```
+
+##Question 2
+
+Use solution for question 1 and create a stacked bar plot by adding additional variable "year" to the bar plot.
+
+```{r}
+#Computing the total delays for all carriers including year to group this time
+Total_delays_year <- summarise(group_by(Flights_raw, carrier, year), 
+                               Sum_delay =sum(arr_delay,na.rm=TRUE),)
+
+
+#Creating a stacked plot for top 10 carriers by delay using Year variable as the fill aesthetic
+ggplot(Total_delays_year, aes(x=factor(reorder(carrier, Sum_delay)),
+                              y=Sum_delay, fill=factor(year))) +
+  geom_bar(stat="identity", color="white") + coord_flip() + labs(x="Carrier", 
+                                                   y="Total Arrival Delay", 
+                                                   fill= "Year", 
+                                                   title = "Stacked Bar Graph") + 
+  xlim(c("F9", "US","MQ", "B6", "UA", "EV", "DL", "OO","AA", "WN"))+ 
+  theme_classic() + theme(axis.line = element_line(colour = "black", 
+                          size = 1, linetype = "solid"))
+```
+
+
+##Question 3
+
+Generate the density plot.
+
+```{r}
+#Subsetting theraw dataset to keep only the some columns
+flights <- Flights_raw[,c(12:16)]
+
+#Combining all the delay columns into one using gather function
+delay <- gather(flights, "Delay_type", )
+unique(delay$Delay_type)
+
+#Creating the density plot for all delay types
+ggplot(delay, aes(x=log(value), fill=Delay_type)) + 
+  geom_density(alpha=0.4) + 
+  xlab("Log Arrival Delay in mins")+ 
+  ylab("Density") + ggtitle("Density Graph")+
+  theme(axis.line = element_line(colour = "black", 
+                      size = 1, linetype = "solid"))
+```
+
+
+##Question 4
+
+Generate a heatmap. Each combination of carrier and type of delay is filled by sum of the delays in mins.
+
+```{r}
+#Subsetting the raw dataset to only keeep the required columns
+flights2 <-  Flights_raw[,c(3, 12:16)]
+
+#Combining all the delay columns into one using gather function
+delay2 <- gather(flights2, "Delay_type", "Delay_in_mins", 
+                 carrier_delay:late_aircraft_delay)
+  
+#Calculating the sum of total carrier delays in minutes  
+Total_delays_type <- summarise(group_by(delay2, carrier, Delay_type), 
+                               Sum_delay =sum(Delay_in_mins,na.rm=TRUE),)
+
+#Plotting the heatmap for delay type vs carrier using sum of carrier delays as fill
+ggplot(Total_delays_type, aes(x=Delay_type, y=carrier, fill=Sum_delay)) + 
+  geom_tile() +labs(x="Delay type", y="Carrier", 
+                    fill="Total carrier delays", title = "Heatmap")+
+  theme_minimal()
+```
+
+
+##Question 5
+
+Generate a line plot with x-axis representing year, y-axis representing total delay in minutes,and fill with 5 lines of different colors each representing carrier_delay, late_aircraft_delay, nas_delay, weather_delay and security_delay. 
+
+```{r}
+#Subsetting the raw dataset to only keeep the required columns
+flights3 <-  Flights_raw[,c(1,12:16)]
+
+#Combining all the delay columns into one using gather function
+delay3 <- gather(flights3, "Delay_type", "Delay_in_mins", 
+                 carrier_delay:late_aircraft_delay)
+
+#Calculating the sum of total carrier delays in minutes  
+Total_delaytype_year <- summarise(group_by(delay3, year,Delay_type), 
+                                  Sum_delay =sum(Delay_in_mins,na.rm=TRUE),)
+
+#Creating the required line graph 
+ggplot(Total_delaytype_year, aes(x=factor(year), y=Sum_delay, 
+                                 group=Delay_type, color=Delay_type)) + 
+  geom_line() +geom_point() + theme_classic()+
+  labs(x="Year", y="Total delay in mins", color = "Delay type", title = "Line Graph")+
+  theme(axis.line = element_line(colour = "black", 
+                      size = 1, linetype = "solid")) +
+  theme_classic()
+```
