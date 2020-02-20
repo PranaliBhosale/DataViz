@@ -1,0 +1,132 @@
+---
+title: "DBLP Database"
+author: "Pranali Bhosale"
+date: "2/19/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#library(lubridate)
+library(readr)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(DBI)
+library(RMySQL)
+library(dbplyr)
+#library(tinytex)
+```
+
+```{r}
+#Creating a connection to import the tables in R
+database_raw = dbConnect(MySQL(), user='root', password='7410', dbname='dblp')
+
+#Storing the tables
+authors <- dbGetQuery(database_raw, 'Select * from authors')
+general <- dbGetQuery(database_raw, 'Select * from general')
+
+#Doing a left join on the two tables
+db_raw <- left_join(authors, general, by="k")
+
+#Filtering the data to include only the authors for whom a gender was predicted as 
+#‘male’ or ‘female’ with a probability of 0.90 or greater, and then creating a bar 
+#plot showing the total number of distinct male and female authors published each year.
+db <- db_raw %>%
+filter(gender == 'M' | gender == 'F', prob >= 0.90) %>% distinct() 
+
+summarise(group_by(db, year, gender), cnt=n())%>%
+  ggplot(aes(x=factor(year), y=cnt, fill=gender)) + geom_bar(stat="identity", 
+                                                             position = "dodge")+
+  labs(x="Year", y="Distinct count of authors", title = "Distinct Male 
+       & Female authors by Year") + theme_classic()
+
+```
+
+In the above graph we see that the total number of published male authors each year, begining from 1960 upto 2015, is very high in comparison to published female authors. The number of male as well as female published authors was highest in 2013 among the rest of the years. It is also seen here that till about 1965, there were no female published authors at all.
+
+
+##PROBLEM 4
+
+```{r}
+#Grouping by year and counting the total distinct authors
+author_year <- db %>% group_by(year)%>% summarise(total_auth=n()) 
+
+##Grouping by year as well as gender and counting the total distinct authors
+author_genyear <- db %>% group_by(gender, year)%>% summarise(gen_author =n()) 
+
+#Plotting the year vs % of authors by using gender as an added aesthetic
+left_join(author_genyear, author_year, by="year") %>%
+mutate(gender_prop = gen_author / total_auth) %>%
+ggplot(aes(x=factor(year), y=gender_prop, fill=gender)) + geom_bar(stat = "identity") +
+labs(x="Year", y="% of published authors", title="Year vs % of Authors")
+```
+
+In the graph here we see that, overall there has been an increaing trend in the proportion of published female authors. 
+Once again, we see that the proportion of male authors every year is much higer compared to female authors.
+
+
+##PROBLEM 5
+
+```{r}
+#Gathering the 4 domains into one column
+db_gather <- gather(db, cs, de, se, th, key = "Domain", value = "count")
+
+
+#Filtering to only get the first authorships
+db_first<- db_gather %>% filter(pos==0) 
+
+
+#storing the distinct first authors by year and domain
+author_first <- db_first %>% group_by(year, Domain)%>% summarise(total_first=sum(count)) 
+
+#storing the distinct first authors by year, gender and domain
+female_first <- db_first %>% filter(gender =='F') %>%
+  group_by(year, Domain) %>% summarise(femfirst_cnt=sum(count)) 
+
+#PLotting the required graph 
+left_join(female_first, author_first, by = c("year", "Domain"))%>%
+  mutate(first_prop = femfirst_cnt/total_first) %>% drop_na()%>%
+  ggplot(aes(x=(year), y=first_prop)) + geom_bar(stat = "identity", fill="orange")+
+  facet_wrap(~Domain) + labs(x="Year", y="% of First Female authors", 
+                             title = "% First Female authors vs year by domain")+
+  theme_bw()
+```
+For CS:
+
+There is an approximate linear increase in the proportion of first female authors as the years progress.
+2015 has the highest proportion of first female authors among all other years (Linear increase).
+There seems to be a gap in the graph for 1970 and 1974, which could be either due to missing values or there were no published authors for CS that year.
+ 
+ 
+For DE:
+
+2015 has the highest proportion of first female authors among all other years. 
+Surprisingly, 1973, 1975 and 1976 have a very high proportion of first female authors. This should be further investigated, it could just be an error in data.
+There are a few gaps in this graph for 1971, 1974, 1978 and 1980.
+There is again an approximate linear increasing trend for DE as well.
+
+
+For SE:
+
+The highest peak here was seen in 1981, which is the highest peak among all other years and other domains.
+There seem to be no values between 1970 to 1975 for software engineering. There are some gaps between 1970 and 1987.
+There was a steady decrese in the proportion of first female authors from 1998 till 2009, which needs to be further investigated.
+From 2009 onwards there has been a steady linear increase.
+
+
+For TH:
+
+Missing values from 1970 to 1972.
+Overall the proportion of first female authors in this domain seems to be lower in comparison to all other domains.
+Highest peak in this domain was seen in 2006.
+
+
+In conclusion, it can be said that the proportion of female first authors seems to be rising with time. 
+In general, Theory domain seems to be the least popular among females(all bars for all years are shorter in comparison). Meanwhile CS domain has least missing values, high peaks and a linear increase.
+
+The highest peak observed among the graphs is in the Software engineering domain for the year 1981. 
+The lowest observed peak is seen in CS domain for the year 1971.
